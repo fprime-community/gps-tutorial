@@ -1,0 +1,9 @@
+.DS_Store
+build-fprime-*
+*AppDictionary.xml
+*AppID.csv
+*IDTableLog.txt
+GpsApp/Top/channels/*
+GpsApp/Top/commands/*
+GpsApp/Top/events/*
+logs
