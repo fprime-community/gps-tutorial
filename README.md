@@ -1,7 +1,7 @@
 # F´ GPS Tutorial App
 
-This is an example F´ driver for a NEMA compatible GPS built in the F´ GPS Tutorial (TODO: link?).
-It has been built to run on the raspberry pi but should work on any linux system.
+This is an example F´ driver for NEMA compatible GPS modules built in the F´ GPS Tutorial. The
+tutorial specifically targets the raspberry pi but this application should work on any linux system.
 
 ## Building
 
