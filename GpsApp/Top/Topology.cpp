@@ -268,5 +268,6 @@ void exitTasks(void) {
     fileUplink.exit();
     fileDownlink.exit();
     cmdSeq.exit();
+    gpsImpl.exit();
 }
 
