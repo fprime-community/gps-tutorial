@@ -4,8 +4,8 @@
 
 #include <GpsApp/Top/Components.hpp>
 
-void print_usage() {
-    (void) printf("Usage: ./GpsApp -a <ground host IP address/hostname> [-p <ground port>] [-d <GPS uart device>]\n");
+void print_usage(const char* app) {
+    (void) printf("Usage: ./%s [options]\n-p\tport_number\n-a\thostname/IP address\n",app);
 }
 
 #include <signal.h>
@@ -18,16 +18,38 @@ static void sighandler(int signum) {
     terminate = 1;
 }
 
-int main(int argc, char* argv[]) {
-    I32 option = 0;
-    U32 port_number = 50000;
-    char* hostname = NULL;
-    char* device = (char*)"/dev/ttyUSB0";
+void run1cycle(void) {
+    // call interrupt to emulate a clock
+    blockDrv.callIsr();
+    Os::Task::delay(1000); //1Hz
+}
 
-    while ((option = getopt(argc, argv, "hp:a:d:")) != -1){
+void runcycles(NATIVE_INT_TYPE cycles) {
+    if (cycles == -1) {
+        while (true) {
+            run1cycle();
+        }
+    }
+
+    for (NATIVE_INT_TYPE cycle = 0; cycle < cycles; cycle++) {
+        run1cycle();
+    }
+}
+
+int main(int argc, char* argv[]) {
+    U32 port_number = 0; // Invalid port number forced
+    I32 option;
+    char *hostname;
+    char *device;
+    option = 0;
+    hostname = NULL;
+    device = (char*)"/dev/ttyUSB0";
+    bool dump = false;
+
+    while ((option = getopt(argc, argv, "hd:p:a:")) != -1){
         switch(option) {
             case 'h':
-                print_usage();
+                print_usage(argv[0]);
                 return 0;
                 break;
             case 'p':
@@ -36,38 +58,40 @@ int main(int argc, char* argv[]) {
             case 'a':
                 hostname = optarg;
                 break;
+            case '?':
+                return 1;
             case 'd':
                 device = optarg;
                 break;
-            case '?':
-                return 1;
             default:
-                print_usage();
+                print_usage(argv[0]);
                 return 1;
         }
     }
 
     (void) printf("Hit Ctrl-C to quit\n");
 
-    constructApp(port_number, hostname, device);
+    bool quit = constructApp(device, port_number, hostname);
+    if (quit) {
+        return 0;
+    }
 
     // register signal handlers to exit program
     signal(SIGINT,sighandler);
     signal(SIGTERM,sighandler);
 
-    while(!terminate) {
-        //GPS-- Given the application's lack of a specific timing element, we
-        //      force a call to the rate group driver every second here.
-        //      More complex applications may drive this from a system oscillator.
-        Svc::TimerVal timer;
-        timer.take();
-        rateGroupDriverComp.get_CycleIn_InputPort(0)->invoke(timer);
-        Os::Task::TaskStatus delayStat = Os::Task::delay(1000);
-        FW_ASSERT(Os::Task::TASK_OK == delayStat,delayStat);
+    int cycle = 0;
+
+    while (!terminate) {
+//        (void) printf("Cycle %d\n",cycle);
+        runcycles(1);
+        cycle++;
     }
+
     // Give time for threads to exit
     (void) printf("Waiting for threads...\n");
     Os::Task::delay(1000);
+
     (void) printf("Exiting...\n");
 
     return 0;

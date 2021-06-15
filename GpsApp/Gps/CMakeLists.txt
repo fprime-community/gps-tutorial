@@ -9,6 +9,6 @@
 ####
 set(SOURCE_FILES
 	"${CMAKE_CURRENT_LIST_DIR}/GpsComponentAi.xml"
-	"${CMAKE_CURRENT_LIST_DIR}/GpsComponentImpl.cpp"
+    "${CMAKE_CURRENT_LIST_DIR}/GpsComponentImpl.cpp"
 )
 register_fprime_module()

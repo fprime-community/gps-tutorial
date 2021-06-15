@@ -32,7 +32,7 @@ serial driver.
     <ports>
         <!-- Command port definitions: command input receives commands, command reg out, and response out are
         ports used to register with the command dispatcher, and return responses to it -->
-        <port name="cmdIn" data_type="Fw::Cmd"  kind="input" role="Cmd" max_number="1">
+        <port name="cmdIn" data_type="Fw::Cmd"  kind="input" role="Cmd"    max_number="1">
         </port>
         <port name="cmdRegOut" data_type="Fw::CmdReg" kind="output" role="CmdRegistration" max_number="1">
         </port>
