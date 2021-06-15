@@ -1,4 +1,5 @@
 .DS_Store
+GpsApp/build-artifacts/*
 build-fprime-*
 *AppDictionary.xml
 *AppID.csv

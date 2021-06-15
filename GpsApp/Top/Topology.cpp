@@ -1,52 +1,54 @@
 #include <Components.hpp>
 
-
 #include <Fw/Types/Assert.hpp>
 #include <Os/Task.hpp>
+#include <Fw/Logger/Logger.hpp>
 #include <Os/Log.hpp>
 #include <Fw/Types/MallocAllocator.hpp>
 
+#include <Svc/FramingProtocol/FprimeProtocol.hpp>
+
 #if defined TGT_OS_TYPE_LINUX || TGT_OS_TYPE_DARWIN
+#include <getopt.h>
 #include <stdlib.h>
 #include <ctype.h>
 #endif
 
-
-Os::Log osLogger;
-
 // List of context IDs
-
-// GPS Application:
-//  For GPS application specific items, look for GPS-- comments below
 enum {
     DOWNLINK_PACKET_SIZE = 500,
     DOWNLINK_BUFFER_STORE_SIZE = 2500,
     DOWNLINK_BUFFER_QUEUE_SIZE = 5,
     UPLINK_BUFFER_STORE_SIZE = 3000,
-    UPLINK_BUFFER_QUEUE_SIZE = 30
+    UPLINK_BUFFER_QUEUE_SIZE = 30,
+    UPLINK_BUFFER_MGR_ID = 200
 };
 
 enum {
-        ACTIVE_COMP_1HZ_RG,
-        ACTIVE_COMP_P5HZ_RG,
-        ACTIVE_COMP_P25HZ_RG,
-        ACTIVE_COMP_CMD_DISP,
-        ACTIVE_COMP_CMD_SEQ,
-        ACTIVE_COMP_LOGGER,
-        ACTIVE_COMP_TLM,
-        ACTIVE_COMP_PRMDB,
-        ACTIVE_COMP_FILE_DOWNLINK,
-        ACTIVE_COMP_FILE_UPLINK,
+    ACTIVE_COMP_1HZ_RG,
+    ACTIVE_COMP_P5HZ_RG,
+    ACTIVE_COMP_P25HZ_RG,
+    ACTIVE_COMP_CMD_DISP,
+    ACTIVE_COMP_CMD_SEQ,
+    ACTIVE_COMP_LOGGER,
+    ACTIVE_COMP_TLM,
+    ACTIVE_COMP_PRMDB,
+    ACTIVE_COMP_FILE_DOWNLINK,
+    ACTIVE_COMP_FILE_UPLINK,
 
-        ACTIVE_COMP_BLKDRV,
-        ACTIVE_COMP_PING_RECEIVER,
-        // GPS-- our component is an active component, thus it needs a thread-id. Thread IDs come from this
-        // enumeration to keep them unique.
-        ACTIVE_COMP_GPS,
+    ACTIVE_COMP_BLKDRV,
+    ACTIVE_COMP_PING_RECEIVER,
+    // GPS-- our component is an active component, thus it needs a thread-id. Thread IDs come from this
+    // enumeration to keep them unique.
+    ACTIVE_COMP_GPS,
 
-        CYCLER_TASK,
-        NUM_ACTIVE_COMPS
+    CYCLER_TASK,
+    NUM_ACTIVE_COMPS
 };
+
+Os::Log osLogger;
+Svc::FprimeDeframing deframing;
+Svc::FprimeFraming framing;
 
 // Registry
 #if FW_OBJECT_REGISTRATION == 1
@@ -54,8 +56,8 @@ static Fw::SimpleObjRegistry simpleReg;
 #endif
 
 // Component instance pointers
-static NATIVE_INT_TYPE rgDivs[] = {1,2,4};
-Svc::RateGroupDriverImpl rateGroupDriverComp(FW_OPTIONAL_NAME("RGDvr"), rgDivs,FW_NUM_ARRAY_ELEMENTS(rgDivs));
+static NATIVE_INT_TYPE rgDivs[Svc::RateGroupDriverImpl::DIVIDER_SIZE] = {1,2,4};
+Svc::RateGroupDriverImpl rateGroupDriverComp(FW_OPTIONAL_NAME("RGDvr"),rgDivs,FW_NUM_ARRAY_ELEMENTS(rgDivs));
 
 static NATIVE_UINT_TYPE rg1Context[] = {0,0,0,0,0,0,0,0,0,0};
 Svc::ActiveRateGroupImpl rateGroup1Comp(FW_OPTIONAL_NAME("RG1"),rg1Context,FW_NUM_ARRAY_ELEMENTS(rg1Context));
@@ -66,14 +68,14 @@ Svc::ActiveRateGroupImpl rateGroup2Comp(FW_OPTIONAL_NAME("RG2"),rg2Context,FW_NU
 static NATIVE_UINT_TYPE rg3Context[] = {0,0,0,0,0,0,0,0,0,0};
 Svc::ActiveRateGroupImpl rateGroup3Comp(FW_OPTIONAL_NAME("RG3"),rg3Context,FW_NUM_ARRAY_ELEMENTS(rg3Context));
 
-// Command Components
-Svc::GroundInterfaceComponentImpl groundIf(FW_OPTIONAL_NAME("GNDIF"));
+// Driver Component
+Drv::BlockDriverImpl blockDrv(FW_OPTIONAL_NAME("BDRV"));
 
-//GPS-- GPS Component construction, notice if compiled with names, a name should be given.
+// GPS-- GPS Component construction, notice if compiled with names, a name should be given
+
 GpsApp::GpsComponentImpl gpsImpl(FW_OPTIONAL_NAME("GPS"));
 
 Drv::LinuxSerialDriverComponentImpl gpsSerial(FW_OPTIONAL_NAME("GPSSERIAL"));
-
 
 
 #if FW_ENABLE_TEXT_LOGGING
@@ -81,44 +83,45 @@ Svc::ConsoleTextLoggerImpl textLogger(FW_OPTIONAL_NAME("TLOG"));
 #endif
 
 Svc::ActiveLoggerImpl eventLogger(FW_OPTIONAL_NAME("ELOG"));
+
 Svc::LinuxTimeImpl linuxTime(FW_OPTIONAL_NAME("LTIME"));
 Svc::TlmChanImpl chanTlm(FW_OPTIONAL_NAME("TLM"));
 Svc::CommandDispatcherImpl cmdDisp(FW_OPTIONAL_NAME("CMDDISP"));
-Fw::MallocAllocator seqMallocator;
+Fw::MallocAllocator mallocator;
 Svc::CmdSequencerComponentImpl cmdSeq(FW_OPTIONAL_NAME("CMDSEQ"));
 Svc::PrmDbImpl prmDb(FW_OPTIONAL_NAME("PRM"),"PrmDb.dat");
 
 
+Drv::TcpClientComponentImpl comm(FW_OPTIONAL_NAME("Tcp"));
 Svc::FileUplink fileUplink(FW_OPTIONAL_NAME("fileUplink"));
-Svc::FileDownlink fileDownlink(FW_OPTIONAL_NAME("fileDownlink"), DOWNLINK_PACKET_SIZE);
-Svc::BufferManager fileDownlinkBufferManager(FW_OPTIONAL_NAME("fileDownlinkBufferManager"), DOWNLINK_BUFFER_STORE_SIZE, DOWNLINK_BUFFER_QUEUE_SIZE);
-Svc::BufferManager fileUplinkBufferManager(FW_OPTIONAL_NAME("fileUplinkBufferManager"), UPLINK_BUFFER_STORE_SIZE, UPLINK_BUFFER_QUEUE_SIZE);
+Svc::FileDownlink fileDownlink(FW_OPTIONAL_NAME("fileDownlink"));
+Svc::FileManager fileManager(FW_OPTIONAL_NAME("fileManager"));
+Svc::BufferManagerComponentImpl fileUplinkBufferManager(FW_OPTIONAL_NAME("fileUplinkBufferManager"));
 Svc::HealthImpl health(FW_OPTIONAL_NAME("health"));
 
-Drv::SocketIpDriverComponentImpl socketIpDriver(FW_OPTIONAL_NAME("SocketIpDriver"));
 Svc::AssertFatalAdapterComponentImpl fatalAdapter(FW_OPTIONAL_NAME("fatalAdapter"));
 Svc::FatalHandlerComponentImpl fatalHandler(FW_OPTIONAL_NAME("fatalHandler"));
 
-#if FW_OBJECT_REGISTRATION == 1
+Svc::StaticMemoryComponentImpl staticMemory(FW_OPTIONAL_NAME("staticMemory"));
+Svc::FramerComponentImpl downlink(FW_OPTIONAL_NAME("downlink"));
+Svc::DeframerComponentImpl uplink(FW_OPTIONAL_NAME("uplink"));
 
-void dumparch(void) {
-    simpleReg.dump();
+const char* getHealthName(Fw::ObjBase& comp) {
+   #if FW_OBJECT_NAMES == 1
+       return comp.getObjName();
+   #else
+      return "[no object name]"
+   #endif
 }
 
-#if FW_OBJECT_NAMES == 1
-void dumpobj(const char* objName) {
-    simpleReg.dump(objName);
-}
-#endif
-
-#endif
-
-void constructApp(int port_number, char* hostname, char* device) {
+bool constructApp(char* device, U32 port_number, char* hostname) {
+    // GPS-- Set Uart connection to False
     bool uart_connected = false;
+
 #if FW_PORT_TRACING
     Fw::PortBase::setTrace(false);
 #endif    
-
+    staticMemory.init(0);
     // Initialize rate group driver
     rateGroupDriverComp.init();
 
@@ -128,17 +131,22 @@ void constructApp(int port_number, char* hostname, char* device) {
     rateGroup2Comp.init(10,1);
     
     rateGroup3Comp.init(10,2);
+
+    // Initialize block driver
+    blockDrv.init(10);
+
     //GPS-- Here we initialize the component with a queue size, and instance number. The queue size governs how
     //      many waiting port calls can queue up before the system asserts, and the instance number is a unique
     //      number given to every instance of a given type.
     gpsSerial.init(1);
     gpsImpl.init(10, 1);
+
 #if FW_ENABLE_TEXT_LOGGING
     textLogger.init();
 #endif
 
     eventLogger.init(10,0);
-
+    
     linuxTime.init(0);
 
     chanTlm.init(10,0);
@@ -146,22 +154,31 @@ void constructApp(int port_number, char* hostname, char* device) {
     cmdDisp.init(20,0);
 
     cmdSeq.init(10,0);
-    cmdSeq.allocateBuffer(0,seqMallocator,5*1024);
+    cmdSeq.allocateBuffer(0,mallocator,5*1024);
 
     prmDb.init(10,0);
 
-    groundIf.init(0);
-    socketIpDriver.init(0);
-
+    comm.init(0);
+    downlink.init(0);
+    uplink.init(0);
     fileUplink.init(30, 0);
     fileDownlink.init(30, 0);
+    fileDownlink.configure(1000, 1000, 1000, 10);
+    fileManager.init(30, 0);
     fileUplinkBufferManager.init(0);
-    fileDownlinkBufferManager.init(1);
     fatalAdapter.init(0);
     fatalHandler.init(0);
     health.init(25,0);
+
+    downlink.setup(framing);
+    uplink.setup(deframing);
+
     // Connect rate groups to rate group driver
     constructGpsAppArchitecture();
+
+#if FW_OBJECT_REGISTRATION == 1
+        simpleReg.dump();
+#endif
 
     /* Register commands */
     cmdSeq.regCommands();
@@ -169,25 +186,40 @@ void constructApp(int port_number, char* hostname, char* device) {
     eventLogger.regCommands();
     prmDb.regCommands();
     fileDownlink.regCommands();
+    fileManager.regCommands();
     health.regCommands();
+
+    //GPS-- Register commands
     gpsImpl.regCommands();
 
     // read parameters
     prmDb.readParamFile();
 
+    // set up BufferManager instances
+    Svc::BufferManagerComponentImpl::BufferBins upBuffMgrBins;
+    memset(&upBuffMgrBins,0,sizeof(upBuffMgrBins));
+    upBuffMgrBins.bins[0].bufferSize = UPLINK_BUFFER_STORE_SIZE;
+    upBuffMgrBins.bins[0].numBuffers = UPLINK_BUFFER_QUEUE_SIZE;
+    fileUplinkBufferManager.setup(UPLINK_BUFFER_MGR_ID,0,mallocator,upBuffMgrBins);
+
     // set health ping entries
 
     Svc::HealthImpl::PingEntry pingEntries[] = {
-        {3,5,rateGroup1Comp.getObjName()}, // 0
-        {3,5,rateGroup2Comp.getObjName()}, // 1
-        {3,5,rateGroup3Comp.getObjName()}, // 2
-        {3,5,cmdDisp.getObjName()}, // 3
-        {3,5,eventLogger.getObjName()}, // 4
-        {3,5,cmdSeq.getObjName()}, // 5
-        {3,5,chanTlm.getObjName()}, // 6
-        {3,5,fileUplink.getObjName()}, // 7
-        {3,5,fileDownlink.getObjName()}, // 8
+        {3,5,getHealthName(rateGroup1Comp)}, // 0
+        {3,5,getHealthName(rateGroup2Comp)}, // 1
+        {3,5,getHealthName(rateGroup3Comp)}, // 2
+        {3,5,getHealthName(cmdDisp)}, // 3
+        {3,5,getHealthName(eventLogger)}, // 4
+        {3,5,getHealthName(cmdSeq)}, // 5
+        {3,5,getHealthName(chanTlm)}, // 6
+        {3,5,getHealthName(prmDb)}, // 7
+        {3,5,getHealthName(fileUplink)}, // 8
+        {3,5,getHealthName(fileDownlink)}, // 9
+        {3,5,getHealthName(blockDrv)}, // 10
+        {3,5,getHealthName(fileManager)}, // 11
     };
+
+    // GPS-- Open connection Gps device
     if (!gpsSerial.open(device,
                    Drv::LinuxSerialDriverComponentImpl::BAUD_9600,
                    Drv::LinuxSerialDriverComponentImpl::NO_FLOW, 
@@ -199,22 +231,26 @@ void constructApp(int port_number, char* hostname, char* device) {
         Fw::Logger::logMsg("[INFO] Opened GPS UART: %s\n", reinterpret_cast<POINTER_CAST>(device));
         uart_connected = true;
     }
+
     // register ping table
     health.setPingEntries(pingEntries,FW_NUM_ARRAY_ELEMENTS(pingEntries),0x123);
 
     // Active component startup
     // start rate groups
-    rateGroup1Comp.start(ACTIVE_COMP_1HZ_RG, 120,10 * 1024);
-    rateGroup2Comp.start(ACTIVE_COMP_P5HZ_RG, 119,10 * 1024);
-    rateGroup3Comp.start(ACTIVE_COMP_P25HZ_RG, 118,10 * 1024);
+    rateGroup1Comp.start(0, 120,10 * 1024);
+    rateGroup2Comp.start(0, 119,10 * 1024);
+    rateGroup3Comp.start(0, 118,10 * 1024);
+    // start driver
+    blockDrv.start(0,140,10*1024);
     // start dispatcher
-    cmdDisp.start(ACTIVE_COMP_CMD_DISP,101,10*1024);
+    cmdDisp.start(0,101,10*1024);
     // start sequencer
-    cmdSeq.start(ACTIVE_COMP_CMD_SEQ,100,10*1024);
+    cmdSeq.start(0,100,10*1024);
     // start telemetry
-    eventLogger.start(ACTIVE_COMP_LOGGER,98,10*1024);
-    chanTlm.start(ACTIVE_COMP_TLM,97,10*1024);
-    prmDb.start(ACTIVE_COMP_PRMDB,96,10*1024);
+    eventLogger.start(0,98,10*1024);
+    chanTlm.start(0,97,10*1024);
+    prmDb.start(0,96,10*1024);
+
     //GPS-- GPS thread starting. The GPS component is active, so its governing thread must be started
     //      with the unique id, defined above, a priority 256 (highest) - 0 (lowest) set here to 99, and
     //      a stack size for the thread, here 10KB is used.
@@ -222,52 +258,56 @@ void constructApp(int port_number, char* hostname, char* device) {
     if (uart_connected) {
         gpsSerial.startReadThread(94, 20 * 1024);
     }
-    fileDownlink.start(ACTIVE_COMP_FILE_DOWNLINK, 100, 10*1024);
-    fileUplink.start(ACTIVE_COMP_FILE_UPLINK, 100, 10*1024);
+
+    fileDownlink.start(0, 100, 10*1024);
+    fileUplink.start(0, 100, 10*1024);
+    fileManager.start(0, 100, 10*1024);
+
+    //pingRcvr.start(0, 100, 10*1024);
+
+   
 
     // Initialize socket server if and only if there is a valid specification
     if (hostname != NULL && port_number != 0) {
-        socketIpDriver.startSocketTask(100, 10 * 1024, hostname, port_number);
+        Fw::EightyCharString name("ReceiveTask");
+        // Uplink is configured for receive so a socket task is started
+        comm.configure(hostname, port_number);
+        comm.startSocketTask(name, 100, 10 * 1024);
     }
-}
-//GPS-- Given the application's lack of a specific timing element, we
-//      force a call to the rate group driver every second here.
-//      More complex applications may drive this from a system oscillator.
-void run1cycle(void) {
-    // get timer to call rate group driver
-    Svc::TimerVal timer;
-    timer.take();
-    rateGroupDriverComp.get_CycleIn_InputPort(0)->invoke(timer);
-    Os::Task::TaskStatus delayStat = Os::Task::delay(1000);
-    FW_ASSERT(Os::Task::TASK_OK == delayStat,delayStat);
-}
-
-
-
-void runcycles(NATIVE_INT_TYPE cycles) {
-    if (cycles == -1) {
-        while (true) {
-            run1cycle();
-        }
-    }
-
-    for (NATIVE_INT_TYPE cycle = 0; cycle < cycles; cycle++) {
-        run1cycle();
-    }
-
+    return false;
 }
 
 void exitTasks(void) {
     rateGroup1Comp.exit();
     rateGroup2Comp.exit();
     rateGroup3Comp.exit();
+    blockDrv.exit();
     cmdDisp.exit();
     eventLogger.exit();
     chanTlm.exit();
     prmDb.exit();
     fileUplink.exit();
     fileDownlink.exit();
+    fileManager.exit();
     cmdSeq.exit();
     gpsImpl.exit();
+    // join the component threads with NULL pointers to free them
+    (void) rateGroup1Comp.ActiveComponentBase::join(NULL);
+    (void) rateGroup2Comp.ActiveComponentBase::join(NULL);
+    (void) rateGroup3Comp.ActiveComponentBase::join(NULL);
+    (void) blockDrv.ActiveComponentBase::join(NULL);
+    (void) cmdDisp.ActiveComponentBase::join(NULL);
+    (void) eventLogger.ActiveComponentBase::join(NULL);
+    (void) chanTlm.ActiveComponentBase::join(NULL);
+    (void) prmDb.ActiveComponentBase::join(NULL);
+    (void) fileUplink.ActiveComponentBase::join(NULL);
+    (void) fileDownlink.ActiveComponentBase::join(NULL);
+    (void) fileManager.ActiveComponentBase::join(NULL);
+    (void) cmdSeq.ActiveComponentBase::join(NULL);
+    (void) gpsImpl.ActiveComponentBase::join(NULL);
+    comm.stopSocketTask();
+    (void) comm.joinSocketTask(NULL);
+    cmdSeq.deallocateBuffer(mallocator);
+    fileUplinkBufferManager.cleanup();
 }
 

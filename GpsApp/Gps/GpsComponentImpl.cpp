@@ -23,8 +23,10 @@ namespace GpsApp {
   GpsComponentImpl ::
     GpsComponentImpl(
         const char *const compName
-    ) : GpsComponentBase(compName),
-        m_locked(false) // Initialize the lock to "false"
+    ) :
+      GpsComponentBase(compName),
+      // Initialize the lock to "false"
+      m_locked(false)
   {
 
   }
@@ -46,8 +48,8 @@ namespace GpsApp {
   {
       for (NATIVE_INT_TYPE buffer = 0; buffer < NUM_UART_BUFFERS; buffer++) {
           //Assign the raw data to the buffer. Make sure to include the side of the region assigned.
-          this->m_recvBuffers[buffer].setdata((U64)this->m_uartBuffers[buffer]);
-          this->m_recvBuffers[buffer].setsize(UART_READ_BUFF_SIZE);
+          this->m_recvBuffers[buffer].setData((U8*)this->m_uartBuffers[buffer]);
+          this->m_recvBuffers[buffer].setSize(UART_READ_BUFF_SIZE);
           // Invoke the port to send the buffer out.
           this->serialBufferOut_out(0, this->m_recvBuffers[buffer]);
       }
@@ -79,15 +81,15 @@ namespace GpsApp {
       float lat = 0.0f, lon = 0.0f;
       GpsPacket packet;
       // Grab the size (used amount of the buffer) and a pointer to the data in the buffer
-      U32 buffsize = static_cast<U32>(serBuffer.getsize());
-      char* pointer = reinterpret_cast<char*>(serBuffer.getdata());
+      U32 buffsize = static_cast<U32>(serBuffer.getSize());
+      char* pointer = reinterpret_cast<char*>(serBuffer.getData());
       // Check for invalid read status, log an error, return buffer and abort if there is a problem
       if (serial_status != Drv::SER_OK) {
           Fw::Logger::logMsg("[WARNING] Received buffer with bad packet: %d\n", serial_status);
           // We MUST return the buffer or the serial driver won't be able to reuse it. The same buffer send call is used
           // as we did in "preamble".  Since the buffer's size was overwritten to hold the actual data size, we need to
           // reset it to the full data block size before returning it.
-          serBuffer.setsize(UART_READ_BUFF_SIZE);
+          serBuffer.setSize(UART_READ_BUFF_SIZE);
           this->serialBufferOut_out(0, serBuffer);
           return;
       }
@@ -96,10 +98,11 @@ namespace GpsApp {
           // We MUST return the buffer or the serial driver won't be able to reuse it. The same buffer send call is used
           // as we did in "preamble".  Since the buffer's size was overwritten to hold the actual data size, we need to
           // reset it to the full data block size before returning it.
-          serBuffer.setsize(UART_READ_BUFF_SIZE);
+          serBuffer.setSize(UART_READ_BUFF_SIZE);
           this->serialBufferOut_out(0, serBuffer);
           return;
       }
+
       //Step 2:
       //  Parse the GPS message from the UART (looking for $GPGGA messages). This uses standard C functions to read all
       //  the defined protocol messages into our GPS package struct. If all 9 items are parsed, we break. Otherwise we
@@ -120,7 +123,7 @@ namespace GpsApp {
           // We MUST return the buffer or the serial driver won't be able to reuse it. The same buffer send call is used
           // as we did in "preamble".  Since the buffer's size was overwritten to hold the actual data size, we need to
           // reset it to the full data block size before returning it.
-          serBuffer.setsize(UART_READ_BUFF_SIZE);
+          serBuffer.setSize(UART_READ_BUFF_SIZE);
           this->serialBufferOut_out(0, serBuffer);
           return;
       }
@@ -130,7 +133,7 @@ namespace GpsApp {
           // We MUST return the buffer or the serial driver won't be able to reuse it. The same buffer send call is used
           // as we did in "preamble".  Since the buffer's size was overwritten to hold the actual data size, we need to
           // reset it to the full data block size before returning it.
-          serBuffer.setsize(UART_READ_BUFF_SIZE);
+          serBuffer.setSize(UART_READ_BUFF_SIZE);
           this->serialBufferOut_out(0, serBuffer);
           return;
       }
@@ -162,7 +165,7 @@ namespace GpsApp {
       // We MUST return the buffer or the serial driver won't be able to reuse it. The same buffer send call is used
       // as we did in "preamble".  Since the buffer's size was overwritten to hold the actual data size, we need to
       // reset it to the full data block size before returning it.
-      serBuffer.setsize(UART_READ_BUFF_SIZE);
+      serBuffer.setSize(UART_READ_BUFF_SIZE);
       this->serialBufferOut_out(0, serBuffer);
   }
 
