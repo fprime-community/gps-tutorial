@@ -44,7 +44,6 @@ int main(int argc, char* argv[]) {
     option = 0;
     hostname = NULL;
     device = (char*)"/dev/ttyUSB0";
-    bool dump = false;
 
     while ((option = getopt(argc, argv, "hd:p:a:")) != -1){
         switch(option) {
