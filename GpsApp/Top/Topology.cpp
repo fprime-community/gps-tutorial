@@ -286,37 +286,12 @@ bool constructApp(char* device, U32 port_number, char* hostname) {
     }
     return false;
 }
-/*
-//GPS-- Given the application's lack of a specific timing element, we
-//      force a call to the rate group driver every second here.
-//      More complex applications may drive this from a system oscillator.
-void run1cycle(void) {
-    // get timer to call rate group driver
-    Svc::TimerVal timer;
-    timer.take();
-    rateGroupDriverComp.get_CycleIn_InputPort(0)->invoke(timer);
-    Os::Task::TaskStatus delayStat = Os::Task::delay(1000);
-    FW_ASSERT(Os::Task::TASK_OK == delayStat,delayStat);
-}
 
-void runcycles(NATIVE_INT_TYPE cycles) {
-    if (cycles == -1) {
-        while (true) {
-            run1cycle();
-        }
-    }
-
-    for (NATIVE_INT_TYPE cycle = 0; cycle < cycles; cycle++) {
-        run1cycle();
-    }
-
-}
-*/
 void exitTasks(void) {
     rateGroup1Comp.exit();
     rateGroup2Comp.exit();
     rateGroup3Comp.exit();
-    //blockDrv.exit();
+    blockDrv.exit();
     cmdDisp.exit();
     eventLogger.exit();
     chanTlm.exit();
@@ -325,13 +300,12 @@ void exitTasks(void) {
     fileDownlink.exit();
     fileManager.exit();
     cmdSeq.exit();
-    //pingRcvr.exit();
     gpsImpl.exit();
     // join the component threads with NULL pointers to free them
     (void) rateGroup1Comp.ActiveComponentBase::join(NULL);
     (void) rateGroup2Comp.ActiveComponentBase::join(NULL);
     (void) rateGroup3Comp.ActiveComponentBase::join(NULL);
-    //(void) blockDrv.ActiveComponentBase::join(NULL);
+    (void) blockDrv.ActiveComponentBase::join(NULL);
     (void) cmdDisp.ActiveComponentBase::join(NULL);
     (void) eventLogger.ActiveComponentBase::join(NULL);
     (void) chanTlm.ActiveComponentBase::join(NULL);
@@ -340,7 +314,6 @@ void exitTasks(void) {
     (void) fileDownlink.ActiveComponentBase::join(NULL);
     (void) fileManager.ActiveComponentBase::join(NULL);
     (void) cmdSeq.ActiveComponentBase::join(NULL);
-    //(void) pingRcvr.ActiveComponentBase::join(NULL);
     (void) gpsImpl.ActiveComponentBase::join(NULL);
     comm.stopSocketTask();
     (void) comm.joinSocketTask(NULL);

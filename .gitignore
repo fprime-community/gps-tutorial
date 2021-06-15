@@ -1,4 +1,5 @@
 .DS_Store
+build-artifacts
 build-fprime-*
 *AppDictionary.xml
 *AppID.csv
