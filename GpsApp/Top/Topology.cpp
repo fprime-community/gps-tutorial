@@ -169,7 +169,6 @@ bool constructApp(char* device, U32 port_number, char* hostname) {
     fatalAdapter.init(0);
     fatalHandler.init(0);
     health.init(25,0);
-    //pingRcvr.init(10);
 
     downlink.setup(framing);
     uplink.setup(deframing);
@@ -177,17 +176,11 @@ bool constructApp(char* device, U32 port_number, char* hostname) {
     // Connect rate groups to rate group driver
     constructGpsAppArchitecture();
 
-    // dump topology if requested
-    //if (dump) {
 #if FW_OBJECT_REGISTRATION == 1
         simpleReg.dump();
 #endif
-    //    return true;
-    //}
 
     /* Register commands */
-    //sendBuffComp.regCommands();
-    //recvBuffComp.regCommands();
     cmdSeq.regCommands();
     cmdDisp.regCommands();
     eventLogger.regCommands();
@@ -195,15 +188,12 @@ bool constructApp(char* device, U32 port_number, char* hostname) {
     fileDownlink.regCommands();
     fileManager.regCommands();
     health.regCommands();
-    //pingRcvr.regCommands();
 
     //GPS-- Register commands
     gpsImpl.regCommands();
 
     // read parameters
     prmDb.readParamFile();
-    //recvBuffComp.loadParameters();
-    //sendBuffComp.loadParameters();
 
     // set up BufferManager instances
     Svc::BufferManagerComponentImpl::BufferBins upBuffMgrBins;
