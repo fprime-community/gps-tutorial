@@ -120,16 +120,16 @@ bool constructApp(char* device, U32 port_number, char* hostname) {
 
 #if FW_PORT_TRACING
     Fw::PortBase::setTrace(false);
-#endif    
+#endif
     staticMemory.init(0);
     // Initialize rate group driver
     rateGroupDriverComp.init();
 
     // Initialize the rate groups
     rateGroup1Comp.init(10,0);
-    
+
     rateGroup2Comp.init(10,1);
-    
+
     rateGroup3Comp.init(10,2);
 
     // Initialize block driver
@@ -146,7 +146,7 @@ bool constructApp(char* device, U32 port_number, char* hostname) {
 #endif
 
     eventLogger.init(10,0);
-    
+
     linuxTime.init(0);
 
     chanTlm.init(10,0);
@@ -222,7 +222,7 @@ bool constructApp(char* device, U32 port_number, char* hostname) {
     // GPS-- Open connection Gps device
     if (!gpsSerial.open(device,
                    Drv::LinuxSerialDriverComponentImpl::BAUD_9600,
-                   Drv::LinuxSerialDriverComponentImpl::NO_FLOW, 
+                   Drv::LinuxSerialDriverComponentImpl::NO_FLOW,
                    Drv::LinuxSerialDriverComponentImpl::PARITY_NONE,
                    true))
     {
@@ -265,11 +265,11 @@ bool constructApp(char* device, U32 port_number, char* hostname) {
 
     //pingRcvr.start(0, 100, 10*1024);
 
-   
+
 
     // Initialize socket server if and only if there is a valid specification
     if (hostname != NULL && port_number != 0) {
-        Fw::EightyCharString name("ReceiveTask");
+        Os::TaskString name("ReceiveTask");
         // Uplink is configured for receive so a socket task is started
         comm.configure(hostname, port_number);
         comm.startSocketTask(name, 100, 10 * 1024);
