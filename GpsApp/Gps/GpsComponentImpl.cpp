@@ -84,8 +84,8 @@ namespace GpsApp {
       U32 buffsize = static_cast<U32>(serBuffer.getSize());
       char* pointer = reinterpret_cast<char*>(serBuffer.getData());
       // Check for invalid read status, log an error, return buffer and abort if there is a problem
-      if (serial_status != Drv::SER_OK) {
-          Fw::Logger::logMsg("[WARNING] Received buffer with bad packet: %d\n", serial_status);
+      if (serial_status != Drv::SerialReadStatus::SER_OK) {
+          Fw::Logger::logMsg("[WARNING] Received buffer with bad packet: %d\n", serial_status.e);
           // We MUST return the buffer or the serial driver won't be able to reuse it. The same buffer send call is used
           // as we did in "preamble".  Since the buffer's size was overwritten to hold the actual data size, we need to
           // reset it to the full data block size before returning it.
@@ -189,6 +189,6 @@ namespace GpsApp {
         log_WARNING_HI_Gps_LockLost();
     }
     //Step 9: complete command
-    this->cmdResponse_out(opCode, cmdSeq, Fw::COMMAND_OK);
+    this->cmdResponse_out(opCode, cmdSeq, Fw::CmdResponse::OK);
   }
 } // end namespace GpsApp

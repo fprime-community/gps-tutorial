@@ -237,31 +237,31 @@ bool constructApp(char* device, U32 port_number, char* hostname) {
 
     // Active component startup
     // start rate groups
-    rateGroup1Comp.start(0, 120,10 * 1024);
-    rateGroup2Comp.start(0, 119,10 * 1024);
-    rateGroup3Comp.start(0, 118,10 * 1024);
+    rateGroup1Comp.start();
+    rateGroup2Comp.start();
+    rateGroup3Comp.start();
     // start driver
-    blockDrv.start(0,140,10*1024);
+    blockDrv.start();
     // start dispatcher
-    cmdDisp.start(0,101,10*1024);
+    cmdDisp.start();
     // start sequencer
-    cmdSeq.start(0,100,10*1024);
+    cmdSeq.start();
     // start telemetry
-    eventLogger.start(0,98,10*1024);
-    chanTlm.start(0,97,10*1024);
-    prmDb.start(0,96,10*1024);
+    eventLogger.start();
+    chanTlm.start();
+    prmDb.start();
 
     //GPS-- GPS thread starting. The GPS component is active, so its governing thread must be started
     //      with the unique id, defined above, a priority 256 (highest) - 0 (lowest) set here to 99, and
     //      a stack size for the thread, here 10KB is used.
-    gpsImpl.start(ACTIVE_COMP_GPS, 95, 10*1024);
+    gpsImpl.start();
     if (uart_connected) {
-        gpsSerial.startReadThread(94, 20 * 1024);
+        gpsSerial.startReadThread();
     }
 
-    fileDownlink.start(0, 100, 10*1024);
-    fileUplink.start(0, 100, 10*1024);
-    fileManager.start(0, 100, 10*1024);
+    fileDownlink.start();
+    fileUplink.start();
+    fileManager.start();
 
     //pingRcvr.start(0, 100, 10*1024);
 
@@ -272,7 +272,7 @@ bool constructApp(char* device, U32 port_number, char* hostname) {
         Os::TaskString name("ReceiveTask");
         // Uplink is configured for receive so a socket task is started
         comm.configure(hostname, port_number);
-        comm.startSocketTask(name, 100, 10 * 1024);
+        comm.startSocketTask(name);
     }
     return false;
 }
