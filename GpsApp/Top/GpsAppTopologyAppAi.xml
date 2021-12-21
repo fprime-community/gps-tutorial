@@ -25,7 +25,7 @@
      <import_component_type>Svc/FileManager/FileManagerComponentAi.xml</import_component_type>
      <import_component_type>Svc/PassiveConsoleTextLogger/PassiveTextLoggerComponentAi.xml</import_component_type>
      <import_component_type>Svc/LinuxTimer/LinuxTimerComponentAi.xml</import_component_type>
-     <import_component_type>Drv/ByteStreamDriverModel/ByteStreamDriverComponentAi.xml</import_component_type>
+     <import_component_type>Drv/ByteStreamDriverModel/ByteStreamDriverModelComponentAi.xml</import_component_type>
      <import_component_type>Svc/StaticMemory/StaticMemoryComponentAi.xml</import_component_type>
      <import_component_type>Svc/Framer/FramerComponentAi.xml</import_component_type>
      <import_component_type>Svc/Deframer/DeframerComponentAi.xml</import_component_type>

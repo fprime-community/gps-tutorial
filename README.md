@@ -8,7 +8,7 @@ tutorial specifically targets the raspberry pi but this application should work 
 1. Run `git clone --recurse-submodules` to checkout this repository and its submodules.
 2. If you're cross compiling, change the default toolchain in `GpsApp/settings.ini` to the correct
    target (ex. `raspberrypi`).
-3. In the `GpsApp` directory, run `fprime-util generate`, then `fprime-util install` to build the app.
+3. In the `GpsApp` directory, run `fprime-util generate`, then `fprime-util build` to build the app.
 
 ## Running
 
