@@ -19,7 +19,7 @@
 # default paths to the F prime framework, and sets a default toolchain.
 ##
 project(GpsApp C CXX)  # Should match the directory it is in
-cmake_minimum_required(VERSION 3.5)
+cmake_minimum_required(VERSION 3.16)
 
 ##
 # Section 2: F prime Core
